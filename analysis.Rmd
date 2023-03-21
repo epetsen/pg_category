@@ -1,0 +1,105 @@
+---
+title: "analysis"
+output: pdf_document
+---
+
+```{r setup, echo=FALSE, message=FALSE}
+library(tidyverse) # for all things tidyverse
+```
+
+```{r}
+# set the default ggplot theme 
+theme_set(theme_classic())
+```
+
+```{r}
+# replace participants' Prolific Academic ID
+# path to file
+# path = "../data/experiment_data.csv"
+
+# read file
+# df = read_csv(path)
+
+# replace participants' Prolific Academic ID
+# df = df[-1,] %>% # remove first row
+#  mutate(prolificacademicID = 1:n())
+
+# write ``df``to a csv file
+# write_csv(df, "../data/experiment_data.csv")
+```
+
+```{r message=FALSE}
+path = "../data/experiment_data.csv"
+
+df = read_csv(path)
+
+# examine structure of data frame
+# glimpse(df)
+
+# wrangle data 
+df = df %>% 
+  rename(response_type = "Response Type",
+         participant = prolificacademicID) %>% 
+  filter(response_type != "Survey Preview") %>%
+  select(c("participant",
+           matches("dp|pp|ap"))) %>% 
+  pivot_longer(cols = -participant,
+               names_to = "category_item",
+               values_to = "rating") %>% 
+  separate(category_item,
+           c("category", "item")) %>%
+  mutate(rating = as.numeric(rating),
+         category = fct_relevel(category,
+                                "dp", # reference level
+                                "ap",
+                                "pp"))
+
+```
+
+```{r}
+length(unique(df$participant))
+```
+
+```{r}
+df %>%
+  group_by(category) %>%
+  summarize(mean = mean(rating))
+```
+
+```{r}
+# plot of means by category
+p = df %>% 
+  group_by(category, participant) %>% 
+  summarize(mean = mean(rating)) %>% 
+  ggplot(aes(x = reorder(category, -mean),
+             y = mean,
+             fill = category)) +
+  geom_point(alpha = 0.4,
+             position = position_jitter(height = 0, 
+                                        width = 0.1)) + 
+  #stat_summary(fun.data = "mean_cl_boot",
+  #             geom = "linerange",
+  #             size = 1) + 
+  stat_summary(fun = "mean",
+               geom = "point",
+               shape = 21,
+               size = 5) + 
+  scale_x_discrete(breaks = c("ap",
+                              "dp",
+                              "pp"),
+                   labels = c("AP",
+                              "DP",
+                              "PP")) +
+  labs(x = "category",
+       y = "rating") + 
+  scale_fill_brewer(palette = "Set1") + 
+  theme(legend.position = "none")
+
+ggsave(filename = "p_cat_mean_plot_no_ci.pdf",
+       path = "../figures",
+       plot = p,
+       #device = "pdf",
+       width = 4,
+       height = 3
+       )
+```
